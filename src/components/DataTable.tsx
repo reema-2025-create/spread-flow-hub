@@ -161,12 +161,42 @@ export function DataTable<T extends Row>({
             {ready ? `إجمالي السجلات: ${rows.length}` : "..."}
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
-        >
-          <Plus className="h-4 w-4" /> إضافة صف جديد
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={exportExcel}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="تصدير إلى Excel"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel
+          </button>
+          <button
+            onClick={exportPDF}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="تصدير إلى PDF"
+          >
+            <FileText className="h-4 w-4 text-red-600" /> PDF
+          </button>
+          <button
+            onClick={triggerImport}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="استيراد من Excel/CSV"
+          >
+            <Upload className="h-4 w-4 text-primary" /> استيراد
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+          >
+            <Plus className="h-4 w-4" /> إضافة صف جديد
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center bg-card border rounded-lg p-3">
