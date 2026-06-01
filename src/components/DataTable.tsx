@@ -1,8 +1,12 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useLocalTable, fileToData, type Row } from "@/hooks/useLocalTable";
 import {
   Plus, Search, Pencil, Trash2, Download, X, Filter as FilterIcon,
+  FileSpreadsheet, FileText, Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export type ColType =
   | "text" | "textarea" | "date" | "select" | "number" | "progress" | "files" | "file";
