@@ -1,8 +1,12 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect } from "react";
 import { useLocalTable, fileToData, type Row } from "@/hooks/useLocalTable";
 import {
   Plus, Search, Pencil, Trash2, Download, X, Filter as FilterIcon,
+  FileSpreadsheet, FileText, Upload,
 } from "lucide-react";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export type ColType =
   | "text" | "textarea" | "date" | "select" | "number" | "progress" | "files" | "file";
@@ -37,11 +41,101 @@ interface Props<T extends Row> {
 export function DataTable<T extends Row>({
   storageKey, title, columns, seed = [], filterKey, rowClassName, extraToolbar,
 }: Props<T>) {
-  const { rows, add, update, remove, ready } = useLocalTable<T>(storageKey, seed);
+  const { rows, setRows, add, update, remove, ready } = useLocalTable<T>(storageKey, seed);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("");
   const [editing, setEditing] = useState<T | null>(null);
   const [creating, setCreating] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
+
+
+
+
+  const exportableCols = useMemo(
+    () => columns.filter((c) => c.type !== "files" && c.type !== "file"),
+    [columns]
+  );
+
+  const visibleRowsForExport = () => filtered;
+
+  const exportExcel = () => {
+    const data = visibleRowsForExport().map((r) => {
+      const o: Record<string, any> = {};
+      exportableCols.forEach((c) => {
+        const v = (r as any)[c.key];
+        o[c.label] = v ?? "";
+      });
+      return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = exportableCols.map(() => ({ wch: 20 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 28) || "Sheet1");
+    XLSX.writeFile(wb, `${storageKey}.xlsx`);
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    const head = [exportableCols.map((c) => c.label)];
+    const body = visibleRowsForExport().map((r) =>
+      exportableCols.map((c) => {
+        const v = (r as any)[c.key];
+        if (v == null) return "";
+        if (Array.isArray(v)) return "";
+        return String(v);
+      })
+    );
+    autoTable(doc, {
+      head, body,
+      styles: { font: "helvetica", fontSize: 9, halign: "right" },
+      headStyles: { fillColor: [30, 41, 80] },
+      margin: { top: 20 },
+      didDrawPage: () => {
+        doc.setFontSize(14);
+        doc.text(title, doc.internal.pageSize.getWidth() - 14, 12, { align: "right" });
+      },
+    });
+    doc.save(`${storageKey}.pdf`);
+  };
+
+  const triggerImport = () => importRef.current?.click();
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+      if (!json.length) { alert("الملف فارغ"); return; }
+      const labelToCol = new Map(columns.map((c) => [c.label.trim(), c]));
+      const keyToCol = new Map(columns.map((c) => [c.key, c]));
+      const mapped = json.map((row) => {
+        const o: any = { id: crypto.randomUUID() };
+        Object.entries(row).forEach(([k, v]) => {
+          const col = labelToCol.get(String(k).trim()) ?? keyToCol.get(String(k).trim());
+          if (!col) return;
+          if (col.type === "files" || col.type === "file") return;
+          if (col.type === "number" || col.type === "progress") {
+            o[col.key] = v === "" ? "" : Number(v);
+          } else {
+            o[col.key] = v;
+          }
+        });
+        return o;
+      });
+      const mode = confirm(
+        `سيتم استيراد ${mapped.length} صف.\nاضغط "موافق" للإضافة إلى الموجود، أو "إلغاء" لاستبدال كل البيانات.`
+      );
+      if (mode) setRows((r) => [...r, ...mapped] as T[]);
+      else setRows(mapped as T[]);
+    } catch (err) {
+      console.error(err);
+      alert("تعذّر قراءة الملف. تأكد أنه Excel/CSV صالح.");
+    }
+  };
 
   const filterCol = filterKey ? columns.find((c) => c.key === filterKey) : undefined;
 
@@ -68,12 +162,42 @@ export function DataTable<T extends Row>({
             {ready ? `إجمالي السجلات: ${rows.length}` : "..."}
           </p>
         </div>
-        <button
-          onClick={() => setCreating(true)}
-          className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
-        >
-          <Plus className="h-4 w-4" /> إضافة صف جديد
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={exportExcel}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="تصدير إلى Excel"
+          >
+            <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel
+          </button>
+          <button
+            onClick={exportPDF}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="تصدير إلى PDF"
+          >
+            <FileText className="h-4 w-4 text-red-600" /> PDF
+          </button>
+          <button
+            onClick={triggerImport}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
+            title="استيراد من Excel/CSV"
+          >
+            <Upload className="h-4 w-4 text-primary" /> استيراد
+          </button>
+          <input
+            ref={importRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            onChange={handleImport}
+            className="hidden"
+          />
+          <button
+            onClick={() => setCreating(true)}
+            className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
+          >
+            <Plus className="h-4 w-4" /> إضافة صف جديد
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3 items-center bg-card border rounded-lg p-3">
