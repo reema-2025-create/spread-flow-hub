@@ -48,7 +48,8 @@ export function DataTable<T extends Row>({
   const [creating, setCreating] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
-  const tableCols = useMemo(() => columns.filter((c) => !c.hideInTable), [columns]);
+
+
 
   const exportableCols = useMemo(
     () => columns.filter((c) => c.type !== "files" && c.type !== "file"),
