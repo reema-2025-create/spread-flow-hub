@@ -7,6 +7,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { prepareArabicPDF, shapeArabic } from "@/lib/pdf-arabic";
 
 export type ColType =
   | "text" | "textarea" | "date" | "select" | "number" | "progress" | "files" | "file";
