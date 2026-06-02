@@ -44,7 +44,7 @@ export function shapeArabic(input: unknown): string {
  * Must be awaited before drawing Arabic text or running autoTable.
  */
 export async function prepareArabicPDF(doc: jsPDF): Promise<string> {
-  const b64 = await fetchFontBase64();
+  const b64 = await loadFontBase64();
   doc.addFileToVFS(FONT_FILE, b64);
   doc.addFont(FONT_FILE, FONT_NAME, "normal");
   doc.setFont(FONT_NAME, "normal");
