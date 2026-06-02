@@ -1,20 +1,19 @@
 import jsPDF from "jspdf";
 // @ts-ignore - no types
 import { ArabicShaper } from "arabic-persian-reshaper";
+// Bundled with the app — Vite emits this as a hashed asset URL.
+import amiriFontUrl from "@/assets/fonts/Amiri-Regular.ttf?url";
 
-const FONT_URL =
-  "https://cdn.jsdelivr.net/npm/@fontsource/amiri@5.0.18/files/amiri-arabic-400-normal.ttf";
 const FONT_NAME = "Amiri";
 const FONT_FILE = "Amiri-Regular.ttf";
 
 let fontBase64: string | null = null;
 
-async function fetchFontBase64(): Promise<string> {
+async function loadFontBase64(): Promise<string> {
   if (fontBase64) return fontBase64;
-  const res = await fetch(FONT_URL);
-  if (!res.ok) throw new Error("تعذّر تحميل الخط العربي");
+  const res = await fetch(amiriFontUrl);
+  if (!res.ok) throw new Error("تعذّر تحميل الخط العربي المضمَّن");
   const buf = await res.arrayBuffer();
-  // Convert ArrayBuffer -> base64 (chunked to avoid call stack limits)
   const bytes = new Uint8Array(buf);
   let binary = "";
   const chunk = 0x8000;
@@ -45,7 +44,7 @@ export function shapeArabic(input: unknown): string {
  * Must be awaited before drawing Arabic text or running autoTable.
  */
 export async function prepareArabicPDF(doc: jsPDF): Promise<string> {
-  const b64 = await fetchFontBase64();
+  const b64 = await loadFontBase64();
   doc.addFileToVFS(FONT_FILE, b64);
   doc.addFont(FONT_FILE, FONT_NAME, "normal");
   doc.setFont(FONT_NAME, "normal");
