@@ -47,6 +47,10 @@ export async function prepareArabicPDF(doc: jsPDF): Promise<string> {
   const b64 = await loadFontBase64();
   doc.addFileToVFS(FONT_FILE, b64);
   doc.addFont(FONT_FILE, FONT_NAME, "normal");
+  // Register the same TTF for "bold"/"italic" so autoTable's header styles don't fall back.
+  doc.addFont(FONT_FILE, FONT_NAME, "bold");
+  doc.addFont(FONT_FILE, FONT_NAME, "italic");
+  doc.addFont(FONT_FILE, FONT_NAME, "bolditalic");
   doc.setFont(FONT_NAME, "normal");
   doc.setR2L(true);
   return FONT_NAME;
