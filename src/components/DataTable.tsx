@@ -7,6 +7,7 @@ import {
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { prepareArabicPDF, shapeArabic } from "@/lib/pdf-arabic";
 
 export type ColType =
   | "text" | "textarea" | "date" | "select" | "number" | "progress" | "files" | "file";
@@ -74,25 +75,36 @@ export function DataTable<T extends Row>({
     XLSX.writeFile(wb, `${storageKey}.xlsx`);
   };
 
-  const exportPDF = () => {
-    const doc = new jsPDF({ orientation: "landscape" });
-    const head = [exportableCols.map((c) => c.label)];
+  const exportPDF = async () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    let fontName = "helvetica";
+    try {
+      fontName = await prepareArabicPDF(doc);
+    } catch (err) {
+      console.error(err);
+      alert("تعذّر تحميل الخط العربي. سيتم استخدام الخط الافتراضي.");
+    }
+    const head = [exportableCols.map((c) => shapeArabic(c.label))];
     const body = visibleRowsForExport().map((r) =>
       exportableCols.map((c) => {
         const v = (r as any)[c.key];
         if (v == null) return "";
         if (Array.isArray(v)) return "";
-        return String(v);
+        return shapeArabic(String(v));
       })
     );
+    const pageWidth = doc.internal.pageSize.getWidth();
     autoTable(doc, {
-      head, body,
-      styles: { font: "helvetica", fontSize: 9, halign: "right" },
-      headStyles: { fillColor: [30, 41, 80] },
-      margin: { top: 20 },
+      head,
+      body,
+      styles: { font: fontName, fontSize: 10, halign: "right", cellPadding: 5, overflow: "linebreak" },
+      headStyles: { font: fontName, fillColor: [30, 41, 80], textColor: 255, halign: "right" },
+      bodyStyles: { font: fontName },
+      margin: { top: 50, right: 20, left: 20 },
       didDrawPage: () => {
-        doc.setFontSize(14);
-        doc.text(title, doc.internal.pageSize.getWidth() - 14, 12, { align: "right" });
+        doc.setFont(fontName, "normal");
+        doc.setFontSize(16);
+        doc.text(shapeArabic(title), pageWidth - 20, 30, { align: "right" });
       },
     });
     doc.save(`${storageKey}.pdf`);
@@ -171,7 +183,7 @@ export function DataTable<T extends Row>({
             <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel
           </button>
           <button
-            onClick={exportPDF}
+            onClick={() => { void exportPDF(); }}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
             title="تصدير إلى PDF"
           >
