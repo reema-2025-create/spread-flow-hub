@@ -1,6 +1,8 @@
 import jsPDF from "jspdf";
 // @ts-ignore - no types
-import { ArabicShaper } from "arabic-persian-reshaper";
+import reshaper from "arabic-persian-reshaper";
+const ArabicShaper: { convertArabic: (s: string) => string } =
+  (reshaper as any)?.ArabicShaper ?? (reshaper as any);
 // Bundled with the app — Vite emits this as a hashed asset URL.
 import amiriFontUrl from "@/assets/fonts/Amiri-Regular.ttf?url";
 
