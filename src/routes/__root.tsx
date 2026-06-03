@@ -12,15 +12,17 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { AppLayout } from "../components/AppLayout";
+import { I18nProvider, useI18n } from "../lib/i18n";
 
 function NotFoundComponent() {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-bold text-foreground">404</h1>
-        <p className="mt-2 text-sm text-muted-foreground">الصفحة غير موجودة</p>
+        <p className="mt-2 text-sm text-muted-foreground">{t("err.notFound")}</p>
         <Link to="/" className="mt-6 inline-flex rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          العودة للرئيسية
+          {t("err.backHome")}
         </Link>
       </div>
     </div>
@@ -29,14 +31,15 @@ function NotFoundComponent() {
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   const router = useRouter();
+  const { t } = useI18n();
   useEffect(() => { reportLovableError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold text-foreground">حدث خطأ</h1>
+        <h1 className="text-xl font-semibold text-foreground">{t("err.title")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <button onClick={() => { router.invalidate(); reset(); }} className="mt-6 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground">
-          إعادة المحاولة
+          {t("err.retry")}
         </button>
       </div>
     </div>
@@ -85,7 +88,9 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <AppLayout><Outlet /></AppLayout>
+      <I18nProvider>
+        <AppLayout><Outlet /></AppLayout>
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
