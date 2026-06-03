@@ -97,9 +97,9 @@ export function DataTable<T extends Row>({
     autoTable(doc, {
       head,
       body,
-      styles: { font: fontName, fontSize: 10, halign: "right", cellPadding: 5, overflow: "linebreak" },
-      headStyles: { font: fontName, fillColor: [30, 41, 80], textColor: 255, halign: "right" },
-      bodyStyles: { font: fontName },
+      styles: { font: fontName, fontStyle: "normal", fontSize: 10, halign: "right", cellPadding: 5, overflow: "linebreak" },
+      headStyles: { font: fontName, fontStyle: "normal", fillColor: [30, 41, 80], textColor: 255, halign: "right" },
+      bodyStyles: { font: fontName, fontStyle: "normal" },
       margin: { top: 50, right: 20, left: 20 },
       didDrawPage: () => {
         doc.setFont(fontName, "normal");
