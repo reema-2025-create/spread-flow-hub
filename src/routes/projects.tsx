@@ -2,11 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DataTable, type Col } from "@/components/DataTable";
 
 export const Route = createFileRoute("/projects")({
-  head: () => ({ meta: [{ title: "المشاريع — سيند" }] }),
+  head: () => ({ meta: [{ title: "Projects — SEND" }] }),
   component: ProjectsPage,
 });
 
-const STATUS = ["مخطط", "قيد التنفيذ", "متأخر", "مكتمل"];
+const STATUS = [
+  { value: "مخطط", label: { ar: "مخطط", en: "Planned" } },
+  { value: "قيد التنفيذ", label: { ar: "قيد التنفيذ", en: "In progress" } },
+  { value: "متأخر", label: { ar: "متأخر", en: "Delayed" } },
+  { value: "مكتمل", label: { ar: "مكتمل", en: "Completed" } },
+];
 const badge: Record<string, string> = {
   "مخطط": "bg-info/15 text-info",
   "قيد التنفيذ": "bg-success/15 text-green-700",
@@ -15,20 +20,20 @@ const badge: Record<string, string> = {
 };
 
 const columns: Col[] = [
-  { key: "name", label: "اسم المشروع", required: true },
-  { key: "contract", label: "مرتبط بعقد", placeholder: "رقم العقد" },
-  { key: "startDate", label: "تاريخ البداية", type: "date" },
-  { key: "progress", label: "نسبة الإنجاز", type: "progress" },
-  { key: "phase", label: "المرحلة الحالية" },
-  { key: "status", label: "الحالة", type: "select", options: STATUS, badgeMap: badge, required: true },
-  { key: "notes", label: "ملاحظات", type: "textarea" },
+  { key: "name", label: { ar: "اسم المشروع", en: "Project name" }, required: true },
+  { key: "contract", label: { ar: "مرتبط بعقد", en: "Linked contract" }, placeholder: { ar: "رقم العقد", en: "Contract no." } },
+  { key: "startDate", label: { ar: "تاريخ البداية", en: "Start date" }, type: "date" },
+  { key: "progress", label: { ar: "نسبة الإنجاز", en: "Progress" }, type: "progress" },
+  { key: "phase", label: { ar: "المرحلة الحالية", en: "Current phase" } },
+  { key: "status", label: { ar: "الحالة", en: "Status" }, type: "select", options: STATUS, badgeMap: badge, required: true },
+  { key: "notes", label: { ar: "ملاحظات", en: "Notes" }, type: "textarea" },
 ];
 
 function ProjectsPage() {
   return (
     <DataTable
       storageKey="send.projects"
-      title="جدول المشاريع"
+      title={{ ar: "جدول المشاريع", en: "Projects" }}
       columns={columns}
       filterKey="status"
       rowClassName={(r) => (r.status === "متأخر" ? "bg-destructive/5 hover:bg-destructive/10" : "")}
