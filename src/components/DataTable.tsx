@@ -8,19 +8,20 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { prepareArabicPDF, shapeArabic } from "@/lib/pdf-arabic";
+import { useI18n, optionValue, type Localized, type SelectOption } from "@/lib/i18n";
 
 export type ColType =
   | "text" | "textarea" | "date" | "select" | "number" | "progress" | "files" | "file";
 
 export interface Col<T = any> {
   key: string;
-  label: string;
+  label: Localized;
   type?: ColType;
-  options?: string[];
+  options?: SelectOption[];
   required?: boolean;
-  placeholder?: string;
+  placeholder?: Localized;
   width?: string;
-  /** For select: map value -> tailwind classes for the badge */
+  /** For select: map stored value -> tailwind classes for the badge */
   badgeMap?: Record<string, string>;
   render?: (value: any, row: T) => React.ReactNode;
   hideInTable?: boolean;
@@ -28,126 +29,33 @@ export interface Col<T = any> {
 
 interface Props<T extends Row> {
   storageKey: string;
-  title: string;
+  title: Localized;
   columns: Col<T>[];
   seed?: T[];
-  /** key of select column used in toolbar filter */
   filterKey?: string;
-  /** Returns extra row classNames (e.g. highlight late) */
   rowClassName?: (row: T) => string;
-  /** Renders below the toolbar */
   extraToolbar?: React.ReactNode;
+}
+
+function optLabel(o: SelectOption): Localized {
+  return typeof o === "string" ? o : o.label;
 }
 
 export function DataTable<T extends Row>({
   storageKey, title, columns, seed = [], filterKey, rowClassName, extraToolbar,
 }: Props<T>) {
   const { rows, setRows, add, update, remove, ready } = useLocalTable<T>(storageKey, seed);
+  const { t, tx } = useI18n();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("");
   const [editing, setEditing] = useState<T | null>(null);
   const [creating, setCreating] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
 
-
-
-
   const exportableCols = useMemo(
     () => columns.filter((c) => c.type !== "files" && c.type !== "file"),
     [columns]
   );
-
-  const visibleRowsForExport = () => filtered;
-
-  const exportExcel = () => {
-    const data = visibleRowsForExport().map((r) => {
-      const o: Record<string, any> = {};
-      exportableCols.forEach((c) => {
-        const v = (r as any)[c.key];
-        o[c.label] = v ?? "";
-      });
-      return o;
-    });
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = exportableCols.map(() => ({ wch: 20 }));
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, title.slice(0, 28) || "Sheet1");
-    XLSX.writeFile(wb, `${storageKey}.xlsx`);
-  };
-
-  const exportPDF = async () => {
-    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
-    let fontName = "helvetica";
-    try {
-      fontName = await prepareArabicPDF(doc);
-    } catch (err) {
-      console.error(err);
-      alert("تعذّر تحميل الخط العربي. سيتم استخدام الخط الافتراضي.");
-    }
-    const head = [exportableCols.map((c) => shapeArabic(c.label))];
-    const body = visibleRowsForExport().map((r) =>
-      exportableCols.map((c) => {
-        const v = (r as any)[c.key];
-        if (v == null) return "";
-        if (Array.isArray(v)) return "";
-        return shapeArabic(String(v));
-      })
-    );
-    const pageWidth = doc.internal.pageSize.getWidth();
-    autoTable(doc, {
-      head,
-      body,
-      styles: { font: fontName, fontStyle: "normal", fontSize: 10, halign: "right", cellPadding: 5, overflow: "linebreak" },
-      headStyles: { font: fontName, fontStyle: "normal", fillColor: [30, 41, 80], textColor: 255, halign: "right" },
-      bodyStyles: { font: fontName, fontStyle: "normal" },
-      margin: { top: 50, right: 20, left: 20 },
-      didDrawPage: () => {
-        doc.setFont(fontName, "normal");
-        doc.setFontSize(16);
-        doc.text(shapeArabic(title), pageWidth - 20, 30, { align: "right" });
-      },
-    });
-    doc.save(`${storageKey}.pdf`);
-  };
-
-  const triggerImport = () => importRef.current?.click();
-
-  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    try {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
-      if (!json.length) { alert("الملف فارغ"); return; }
-      const labelToCol = new Map(columns.map((c) => [c.label.trim(), c]));
-      const keyToCol = new Map(columns.map((c) => [c.key, c]));
-      const mapped = json.map((row) => {
-        const o: any = { id: crypto.randomUUID() };
-        Object.entries(row).forEach(([k, v]) => {
-          const col = labelToCol.get(String(k).trim()) ?? keyToCol.get(String(k).trim());
-          if (!col) return;
-          if (col.type === "files" || col.type === "file") return;
-          if (col.type === "number" || col.type === "progress") {
-            o[col.key] = v === "" ? "" : Number(v);
-          } else {
-            o[col.key] = v;
-          }
-        });
-        return o;
-      });
-      const mode = confirm(
-        `سيتم استيراد ${mapped.length} صف.\nاضغط "موافق" للإضافة إلى الموجود، أو "إلغاء" لاستبدال كل البيانات.`
-      );
-      if (mode) setRows((r) => [...r, ...mapped] as T[]);
-      else setRows(mapped as T[]);
-    } catch (err) {
-      console.error(err);
-      alert("تعذّر قراءة الملف. تأكد أنه Excel/CSV صالح.");
-    }
-  };
 
   const filterCol = filterKey ? columns.find((c) => c.key === filterKey) : undefined;
 
@@ -165,36 +73,151 @@ export function DataTable<T extends Row>({
     });
   }, [rows, search, filter, filterKey, columns]);
 
+  /** Localized display value for a select option (falls back to raw value). */
+  const displaySelect = (col: Col, value: any): string => {
+    if (!col.options) return String(value ?? "");
+    const match = col.options.find((o) => optionValue(o) === value);
+    return match ? tx(optLabel(match)) : String(value ?? "");
+  };
+
+  const cellExportValue = (col: Col, v: any): string => {
+    if (v == null) return "";
+    if (Array.isArray(v)) return "";
+    if (col.type === "select") return displaySelect(col, v);
+    return String(v);
+  };
+
+  const exportExcel = () => {
+    const data = filtered.map((r) => {
+      const o: Record<string, any> = {};
+      exportableCols.forEach((c) => {
+        o[tx(c.label)] = cellExportValue(c, (r as any)[c.key]);
+      });
+      return o;
+    });
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws["!cols"] = exportableCols.map(() => ({ wch: 20 }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, tx(title).slice(0, 28) || "Sheet1");
+    XLSX.writeFile(wb, `${storageKey}.xlsx`);
+  };
+
+  const exportPDF = async () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    let fontName = "helvetica";
+    try {
+      fontName = await prepareArabicPDF(doc);
+    } catch (err) {
+      console.error(err);
+      alert(t("tbl.fontError"));
+    }
+    const head = [exportableCols.map((c) => shapeArabic(tx(c.label)))];
+    const body = filtered.map((r) =>
+      exportableCols.map((c) => shapeArabic(cellExportValue(c, (r as any)[c.key])))
+    );
+    const pageWidth = doc.internal.pageSize.getWidth();
+    autoTable(doc, {
+      head,
+      body,
+      styles: { font: fontName, fontStyle: "normal", fontSize: 10, halign: "right", cellPadding: 5, overflow: "linebreak" },
+      headStyles: { font: fontName, fontStyle: "normal", fillColor: [30, 41, 80], textColor: 255, halign: "right" },
+      bodyStyles: { font: fontName, fontStyle: "normal" },
+      margin: { top: 50, right: 20, left: 20 },
+      didDrawPage: () => {
+        doc.setFont(fontName, "normal");
+        doc.setFontSize(16);
+        doc.text(shapeArabic(tx(title)), pageWidth - 20, 30, { align: "right" });
+      },
+    });
+    doc.save(`${storageKey}.pdf`);
+  };
+
+  const triggerImport = () => importRef.current?.click();
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: "array" });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const json = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "" });
+      if (!json.length) { alert(t("tbl.importEmpty")); return; }
+      // Build header -> column map for both languages + key.
+      const headerMap = new Map<string, Col>();
+      columns.forEach((c) => {
+        const labels =
+          typeof c.label === "string"
+            ? [c.label]
+            : [c.label.ar, c.label.en].filter(Boolean);
+        labels.forEach((l) => headerMap.set(l.trim(), c));
+        headerMap.set(c.key.trim(), c);
+      });
+      const mapped = json.map((row) => {
+        const o: any = { id: crypto.randomUUID() };
+        Object.entries(row).forEach(([k, v]) => {
+          const col = headerMap.get(String(k).trim());
+          if (!col) return;
+          if (col.type === "files" || col.type === "file") return;
+          if (col.type === "number" || col.type === "progress") {
+            o[col.key] = v === "" ? "" : Number(v);
+          } else if (col.type === "select" && col.options) {
+            // Allow imports to use either language label or the raw value.
+            const val = String(v).trim();
+            const match = col.options.find((opt) => {
+              const value = optionValue(opt);
+              if (value === val) return true;
+              const lbl = optLabel(opt);
+              if (typeof lbl === "string") return lbl === val;
+              return lbl.ar === val || lbl.en === val;
+            });
+            o[col.key] = match ? optionValue(match) : val;
+          } else {
+            o[col.key] = v;
+          }
+        });
+        return o;
+      });
+      const mode = confirm(t("tbl.importPrompt", { n: mapped.length }));
+      if (mode) setRows((r) => [...r, ...mapped] as T[]);
+      else setRows(mapped as T[]);
+    } catch (err) {
+      console.error(err);
+      alert(t("tbl.importError"));
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{title}</h1>
+          <h1 className="text-2xl font-bold text-foreground">{tx(title)}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {ready ? `إجمالي السجلات: ${rows.length}` : "..."}
+            {ready ? `${t("tbl.total")}: ${rows.length}` : "..."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={exportExcel}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
-            title="تصدير إلى Excel"
+            title={t("tbl.exportExcel")}
           >
             <FileSpreadsheet className="h-4 w-4 text-green-600" /> Excel
           </button>
           <button
             onClick={() => { void exportPDF(); }}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
-            title="تصدير إلى PDF"
+            title={t("tbl.exportPDF")}
           >
             <FileText className="h-4 w-4 text-red-600" /> PDF
           </button>
           <button
             onClick={triggerImport}
             className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-muted transition"
-            title="استيراد من Excel/CSV"
+            title={t("tbl.importHint")}
           >
-            <Upload className="h-4 w-4 text-primary" /> استيراد
+            <Upload className="h-4 w-4 text-primary" /> {t("tbl.import")}
           </button>
           <input
             ref={importRef}
@@ -207,7 +230,7 @@ export function DataTable<T extends Row>({
             onClick={() => setCreating(true)}
             className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:opacity-90 transition"
           >
-            <Plus className="h-4 w-4" /> إضافة صف جديد
+            <Plus className="h-4 w-4" /> {t("tbl.add")}
           </button>
         </div>
       </div>
@@ -218,7 +241,7 @@ export function DataTable<T extends Row>({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث سريع..."
+            placeholder={t("tbl.search")}
             className="w-full rounded-md border border-input bg-background pr-9 pl-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
@@ -230,10 +253,11 @@ export function DataTable<T extends Row>({
               onChange={(e) => setFilter(e.target.value)}
               className="rounded-md border border-input bg-background px-3 py-2 text-sm"
             >
-              <option value="">كل {filterCol.label}</option>
-              {filterCol.options?.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
+              <option value="">{t("tbl.all")} {tx(filterCol.label)}</option>
+              {filterCol.options?.map((o) => {
+                const v = optionValue(o);
+                return <option key={v} value={v}>{tx(optLabel(o))}</option>;
+              })}
             </select>
           </div>
         )}
@@ -247,32 +271,32 @@ export function DataTable<T extends Row>({
               <tr>
                 {columns.filter((c) => !c.hideInTable).map((c) => (
                   <th key={c.key} className="text-right font-semibold px-4 py-3 whitespace-nowrap" style={{ width: c.width }}>
-                    {c.label}
+                    {tx(c.label)}
                   </th>
                 ))}
-                <th className="px-4 py-3 w-24">إجراءات</th>
+                <th className="px-4 py-3 w-24">{t("tbl.actions")}</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 && (
-                <tr><td colSpan={columns.length + 1} className="text-center text-muted-foreground py-10">لا توجد بيانات</td></tr>
+                <tr><td colSpan={columns.length + 1} className="text-center text-muted-foreground py-10">{t("tbl.empty")}</td></tr>
               )}
               {filtered.map((r) => (
                 <tr key={r.id} className={`border-t hover:bg-muted/30 ${rowClassName?.(r) ?? ""}`}>
                   {columns.filter((c) => !c.hideInTable).map((c) => (
                     <td key={c.key} className="px-4 py-3 align-top">
-                      <CellView col={c} value={(r as any)[c.key]} row={r} />
+                      <CellView col={c} value={(r as any)[c.key]} row={r} displaySelect={displaySelect} />
                     </td>
                   ))}
                   <td className="px-4 py-3">
                     <div className="flex gap-1">
-                      <button onClick={() => setEditing(r)} className="p-1.5 rounded hover:bg-accent text-primary" aria-label="تعديل">
+                      <button onClick={() => setEditing(r)} className="p-1.5 rounded hover:bg-accent text-primary" aria-label={t("tbl.edit")}>
                         <Pencil className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => { if (confirm("هل تريد حذف هذا السجل؟")) remove(r.id); }}
+                        onClick={() => { if (confirm(t("tbl.confirmDelete"))) remove(r.id); }}
                         className="p-1.5 rounded hover:bg-destructive/10 text-destructive"
-                        aria-label="حذف"
+                        aria-label={t("tbl.delete")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -288,7 +312,7 @@ export function DataTable<T extends Row>({
       {(creating || editing) && (
         <RowDialog
           columns={columns}
-          title={editing ? "تعديل السجل" : "إضافة سجل جديد"}
+          title={editing ? t("dlg.editTitle") : t("dlg.newTitle")}
           initial={editing ?? undefined}
           onClose={() => { setCreating(false); setEditing(null); }}
           onSave={(data) => {
@@ -302,12 +326,18 @@ export function DataTable<T extends Row>({
   );
 }
 
-function CellView({ col, value, row }: { col: Col; value: any; row: any }) {
+function CellView({
+  col, value, row, displaySelect,
+}: {
+  col: Col; value: any; row: any;
+  displaySelect: (col: Col, value: any) => string;
+}) {
   if (col.render) return <>{col.render(value, row)}</>;
   if (value == null || value === "") return <span className="text-muted-foreground">—</span>;
-  if (col.type === "select" && col.badgeMap) {
-    const cls = col.badgeMap[value] ?? "bg-muted text-foreground";
-    return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{value}</span>;
+  if (col.type === "select") {
+    const label = displaySelect(col, value);
+    const cls = col.badgeMap?.[value] ?? "bg-muted text-foreground";
+    return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>{label}</span>;
   }
   if (col.type === "progress") {
     const v = Math.max(0, Math.min(100, Number(value) || 0));
@@ -356,6 +386,7 @@ function RowDialog({
   onSave: (data: any) => void;
   onClose: () => void;
 }) {
+  const { t, tx } = useI18n();
   const [form, setForm] = useState<any>(() => {
     const o: any = {};
     columns.forEach((c) => { o[c.key] = initial?.[c.key] ?? (c.type === "files" ? [] : ""); });
@@ -383,14 +414,14 @@ function RowDialog({
           {columns.map((c) => (
             <div key={c.key} className={c.type === "textarea" || c.type === "files" || c.type === "file" ? "md:col-span-2" : ""}>
               <label className="block text-sm font-medium mb-1.5">
-                {c.label} {c.required && <span className="text-destructive">*</span>}
+                {tx(c.label)} {c.required && <span className="text-destructive">*</span>}
               </label>
               <FieldInput col={c} value={form[c.key]} onChange={(v) => set(c.key, v)} />
             </div>
           ))}
           <div className="md:col-span-2 flex justify-end gap-2 pt-2 border-t">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border hover:bg-muted">إلغاء</button>
-            <button type="submit" className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground font-medium">حفظ</button>
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm rounded-md border hover:bg-muted">{t("dlg.cancel")}</button>
+            <button type="submit" className="px-4 py-2 text-sm rounded-md bg-primary text-primary-foreground font-medium">{t("dlg.save")}</button>
           </div>
         </form>
       </div>
@@ -399,14 +430,19 @@ function RowDialog({
 }
 
 function FieldInput({ col, value, onChange }: { col: Col; value: any; onChange: (v: any) => void }) {
+  const { t, tx } = useI18n();
   const base = "w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
+  const placeholder = col.placeholder ? tx(col.placeholder) : undefined;
   if (col.type === "textarea")
-    return <textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={3} className={base} placeholder={col.placeholder} required={col.required} />;
+    return <textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} rows={3} className={base} placeholder={placeholder} required={col.required} />;
   if (col.type === "select")
     return (
       <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className={base} required={col.required}>
-        <option value="">— اختر —</option>
-        {col.options?.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="">{t("dlg.choose")}</option>
+        {col.options?.map((o) => {
+          const v = optionValue(o);
+          return <option key={v} value={v}>{tx(optLabel(o))}</option>;
+        })}
       </select>
     );
   if (col.type === "date")
@@ -432,7 +468,7 @@ function FieldInput({ col, value, onChange }: { col: Col; value: any; onChange: 
             {value.map((f: any, i: number) => (
               <li key={i} className="flex items-center justify-between bg-muted rounded px-2 py-1">
                 <span>{f.name}</span>
-                <button type="button" onClick={() => onChange(value.filter((_: any, j: number) => j !== i))} className="text-destructive">حذف</button>
+                <button type="button" onClick={() => onChange(value.filter((_: any, j: number) => j !== i))} className="text-destructive">{t("dlg.removeFile")}</button>
               </li>
             ))}
           </ul>
@@ -454,10 +490,10 @@ function FieldInput({ col, value, onChange }: { col: Col; value: any; onChange: 
         {value?.name && (
           <div className="text-xs flex items-center justify-between bg-muted rounded px-2 py-1">
             <span>{value.name}</span>
-            <button type="button" onClick={() => onChange("")} className="text-destructive">حذف</button>
+            <button type="button" onClick={() => onChange("")} className="text-destructive">{t("dlg.removeFile")}</button>
           </div>
         )}
       </div>
     );
-  return <input type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)} className={base} placeholder={col.placeholder} required={col.required} />;
+  return <input type="text" value={value ?? ""} onChange={(e) => onChange(e.target.value)} className={base} placeholder={placeholder} required={col.required} />;
 }
