@@ -2,11 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DataTable, type Col } from "@/components/DataTable";
 
 export const Route = createFileRoute("/contracts")({
-  head: () => ({ meta: [{ title: "العقود — سيند" }] }),
+  head: () => ({ meta: [{ title: "Contracts — SEND" }] }),
   component: ContractsPage,
 });
 
-const STATUS = ["نشط", "مكتمل", "متوقف", "متأخر"];
+const STATUS = [
+  { value: "نشط", label: { ar: "نشط", en: "Active" } },
+  { value: "مكتمل", label: { ar: "مكتمل", en: "Completed" } },
+  { value: "متوقف", label: { ar: "متوقف", en: "On hold" } },
+  { value: "متأخر", label: { ar: "متأخر", en: "Overdue" } },
+];
 const badge: Record<string, string> = {
   "نشط": "bg-success/15 text-green-700",
   "مكتمل": "bg-primary/15 text-primary",
@@ -15,22 +20,22 @@ const badge: Record<string, string> = {
 };
 
 const columns: Col[] = [
-  { key: "number", label: "رقم العقد", required: true },
-  { key: "name", label: "اسم العقد", required: true },
-  { key: "tender", label: "مرتبط بمناقصة", placeholder: "اختياري — رقم/اسم المناقصة" },
-  { key: "startDate", label: "تاريخ البداية", type: "date" },
-  { key: "endDate", label: "تاريخ النهاية", type: "date" },
-  { key: "status", label: "الحالة", type: "select", options: STATUS, badgeMap: badge, required: true },
-  { key: "value", label: "قيمة العقد" },
-  { key: "notes", label: "ملاحظات", type: "textarea" },
-  { key: "files", label: "ملفات العقد (PDF)", type: "files" },
+  { key: "number", label: { ar: "رقم العقد", en: "Contract No." }, required: true },
+  { key: "name", label: { ar: "اسم العقد", en: "Contract name" }, required: true },
+  { key: "tender", label: { ar: "مرتبط بمناقصة", en: "Linked tender" }, placeholder: { ar: "اختياري — رقم/اسم المناقصة", en: "Optional — tender no./name" } },
+  { key: "startDate", label: { ar: "تاريخ البداية", en: "Start date" }, type: "date" },
+  { key: "endDate", label: { ar: "تاريخ النهاية", en: "End date" }, type: "date" },
+  { key: "status", label: { ar: "الحالة", en: "Status" }, type: "select", options: STATUS, badgeMap: badge, required: true },
+  { key: "value", label: { ar: "قيمة العقد", en: "Contract value" } },
+  { key: "notes", label: { ar: "ملاحظات", en: "Notes" }, type: "textarea" },
+  { key: "files", label: { ar: "ملفات العقد (PDF)", en: "Contract files (PDF)" }, type: "files" },
 ];
 
 function ContractsPage() {
   return (
     <DataTable
       storageKey="send.contracts"
-      title="جدول العقود"
+      title={{ ar: "جدول العقود", en: "Contracts" }}
       columns={columns}
       filterKey="status"
       rowClassName={(r) => (r.status === "متأخر" ? "bg-destructive/5 hover:bg-destructive/10" : "")}

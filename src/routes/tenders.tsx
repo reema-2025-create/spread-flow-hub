@@ -2,11 +2,19 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DataTable, type Col } from "@/components/DataTable";
 
 export const Route = createFileRoute("/tenders")({
-  head: () => ({ meta: [{ title: "المناقصات — سيند" }] }),
+  head: () => ({ meta: [{ title: "Tenders — SEND" }] }),
   component: TendersPage,
 });
 
-const STATUS = ["جديدة", "تحت الدراسة", "قيد المراجعة", "تم التقديم", "فائزة", "خاسرة", "ملغية"];
+const STATUS = [
+  { value: "جديدة", label: { ar: "جديدة", en: "New" } },
+  { value: "تحت الدراسة", label: { ar: "تحت الدراسة", en: "Under review" } },
+  { value: "قيد المراجعة", label: { ar: "قيد المراجعة", en: "In approval" } },
+  { value: "تم التقديم", label: { ar: "تم التقديم", en: "Submitted" } },
+  { value: "فائزة", label: { ar: "فائزة", en: "Won" } },
+  { value: "خاسرة", label: { ar: "خاسرة", en: "Lost" } },
+  { value: "ملغية", label: { ar: "ملغية", en: "Cancelled" } },
+];
 const badge: Record<string, string> = {
   "جديدة": "bg-info/15 text-info",
   "تحت الدراسة": "bg-warning/20 text-yellow-800",
@@ -18,21 +26,21 @@ const badge: Record<string, string> = {
 };
 
 const columns: Col[] = [
-  { key: "number", label: "رقم المناقصة", required: true },
-  { key: "name", label: "اسم المناقصة", required: true },
-  { key: "owner", label: "الجهة المالكة" },
-  { key: "openDate", label: "تاريخ الفتح", type: "date" },
-  { key: "closeDate", label: "تاريخ الإغلاق", type: "date" },
-  { key: "status", label: "الحالة", type: "select", options: STATUS, badgeMap: badge, required: true },
-  { key: "notes", label: "ملاحظات", type: "textarea" },
-  { key: "files", label: "مرفقات", type: "files" },
+  { key: "number", label: { ar: "رقم المناقصة", en: "Tender No." }, required: true },
+  { key: "name", label: { ar: "اسم المناقصة", en: "Tender name" }, required: true },
+  { key: "owner", label: { ar: "الجهة المالكة", en: "Owner entity" } },
+  { key: "openDate", label: { ar: "تاريخ الفتح", en: "Open date" }, type: "date" },
+  { key: "closeDate", label: { ar: "تاريخ الإغلاق", en: "Close date" }, type: "date" },
+  { key: "status", label: { ar: "الحالة", en: "Status" }, type: "select", options: STATUS, badgeMap: badge, required: true },
+  { key: "notes", label: { ar: "ملاحظات", en: "Notes" }, type: "textarea" },
+  { key: "files", label: { ar: "مرفقات", en: "Attachments" }, type: "files" },
 ];
 
 function TendersPage() {
   return (
     <DataTable
       storageKey="send.tenders"
-      title="جدول المناقصات"
+      title={{ ar: "جدول المناقصات", en: "Tenders" }}
       columns={columns}
       filterKey="status"
       seed={[

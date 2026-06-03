@@ -2,11 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { DataTable, type Col } from "@/components/DataTable";
 
 export const Route = createFileRoute("/reports")({
-  head: () => ({ meta: [{ title: "التقارير — سيند" }] }),
+  head: () => ({ meta: [{ title: "Reports — SEND" }] }),
   component: ReportsPage,
 });
 
-const TYPES = ["مناقصات", "مشاريع", "عقود", "فرق"];
+const TYPES = [
+  { value: "مناقصات", label: { ar: "مناقصات", en: "Tenders" } },
+  { value: "مشاريع", label: { ar: "مشاريع", en: "Projects" } },
+  { value: "عقود", label: { ar: "عقود", en: "Contracts" } },
+  { value: "فرق", label: { ar: "فرق", en: "Teams" } },
+];
 const badge: Record<string, string> = {
   "مناقصات": "bg-info/15 text-info",
   "مشاريع": "bg-success/15 text-green-700",
@@ -15,18 +20,18 @@ const badge: Record<string, string> = {
 };
 
 const columns: Col[] = [
-  { key: "name", label: "اسم التقرير", required: true },
-  { key: "type", label: "نوع التقرير", type: "select", options: TYPES, badgeMap: badge, required: true },
-  { key: "createdAt", label: "تاريخ الإنشاء", type: "date" },
-  { key: "description", label: "وصف التقرير", type: "textarea" },
-  { key: "file", label: "ملف التقرير (PDF/Excel)", type: "file" },
+  { key: "name", label: { ar: "اسم التقرير", en: "Report name" }, required: true },
+  { key: "type", label: { ar: "نوع التقرير", en: "Report type" }, type: "select", options: TYPES, badgeMap: badge, required: true },
+  { key: "createdAt", label: { ar: "تاريخ الإنشاء", en: "Created at" }, type: "date" },
+  { key: "description", label: { ar: "وصف التقرير", en: "Description" }, type: "textarea" },
+  { key: "file", label: { ar: "ملف التقرير (PDF/Excel)", en: "Report file (PDF/Excel)" }, type: "file" },
 ];
 
 function ReportsPage() {
   return (
     <DataTable
       storageKey="send.reports"
-      title="جدول التقارير"
+      title={{ ar: "جدول التقارير", en: "Reports" }}
       columns={columns}
       filterKey="type"
     />
